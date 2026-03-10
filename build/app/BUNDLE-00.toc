@@ -1,0 +1,3 @@
+([('app',
+   '/Users/tsujikawakengo/Documents/DAICHU_TOOLS/CyberDetective/dist/app',
+   'EXECUTABLE')],)
