@@ -11,27 +11,31 @@ def research_node(state: AgentState):
     topic = state.get("research_topic", "")
     print(f"🕵️ [Researcher]: Playwrightを起動し、『{topic}』についてWeb検索を実行中...")
     
+    # 【修正】Bot対策が非常に厳しい検索エンジンを避け、Yahoo! JAPAN検索を使用する
     encoded_topic = urllib.parse.quote(topic)
-    url = f"https://www.bing.com/search?q={encoded_topic}"
+    url = f"https://search.yahoo.co.jp/search?p={encoded_topic}"
     
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            # User-Agentの偽装と、日本からのアクセスであることを明示（locale設定）
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                locale="ja-JP"
+            )
+            page = context.new_page()
             
             page.goto(url, timeout=30000)
-            
-            # 【修正箇所】 無限ロードを避けるため、DOM読み込み完了でOKとする
             page.wait_for_load_state("domcontentloaded")
-            # 念のため、JavaScriptによるテキストの描画を2秒だけ確実待機する
             page.wait_for_timeout(2000)
             
-            paragraphs = page.locator("body").all_inner_texts()
-            full_text = "\n".join(paragraphs)
+            # Yahoo検索結果のテキストを抽出
+            full_text = page.locator("body").inner_text()
             
             browser.close()
             print("   -> 検索結果のデータ抽出に成功しました！")
             
+            # 取得した実データをChroma（ベクトルDB）に記憶させる
             add_text_to_db(text=full_text, source_url=url)
             
             return {"raw_data": [f"【保存完了】: {url} からの検索結果を記憶しました。"]}
